@@ -39,8 +39,10 @@ def upload_to_r2():
         region_name='auto'  # R2 doesn't use regions
     )
     
-    # Upload file
-    file_path = 'data/screener.json'
+    # Upload file (use absolute path relative to project root)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    file_path = os.path.join(project_root, 'data', 'screener.json')
     object_name = 'screener.json'
     
     try:
