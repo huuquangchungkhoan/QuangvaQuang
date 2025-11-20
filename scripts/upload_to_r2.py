@@ -58,10 +58,14 @@ def upload_to_r2():
         
         logger.info(f"✅ Successfully uploaded to R2!")
         
-        # Generate public URL (use custom domain if available)
-        custom_domain = os.getenv('R2_CUSTOM_DOMAIN', 'data.lightinvest.vn')
-        public_url = f"https://{custom_domain}/{object_name}"
-        logger.info(f"🔗 Public URL: {public_url}")
+        # Generate R2 dev URL (bypasses Cloudflare cache)
+        r2_dev_url = f"https://pub-{account_id.replace('-', '')}.r2.dev/{object_name}"
+        logger.info(f"🔗 R2 Dev URL: {r2_dev_url}")
+        
+        # Also show custom domain if set
+        custom_domain = os.getenv('R2_CUSTOM_DOMAIN')
+        if custom_domain:
+            logger.info(f"🔗 Custom Domain: https://{custom_domain}/{object_name} (may be cached)")
         
         return public_url
         
