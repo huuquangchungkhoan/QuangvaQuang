@@ -22,7 +22,8 @@ def upload_to_r2():
     account_id = os.getenv('R2_ACCOUNT_ID')
     access_key = os.getenv('R2_ACCESS_KEY_ID')
     secret_key = os.getenv('R2_SECRET_ACCESS_KEY')
-    bucket_name = os.getenv('R2_BUCKET_NAME', 'vietcap-data')
+    bucket_name = os.getenv('R2_BUCKET_NAME', 'screener')
+    custom_domain = os.getenv('R2_CUSTOM_DOMAIN', 'screener.lightinvest.vn')
     
     if not all([account_id, access_key, secret_key]):
         raise ValueError("❌ Missing R2 credentials in environment variables")
@@ -45,27 +46,22 @@ def upload_to_r2():
     try:
         logger.info(f"📤 Uploading {file_path} to R2 bucket '{bucket_name}'...")
         
-        # Upload with public-read ACL and proper content type
+        # Upload with proper cache headers (30 minutes)
         s3_client.upload_file(
             file_path,
             bucket_name,
             object_name,
             ExtraArgs={
                 'ContentType': 'application/json',
-                'CacheControl': 'public, max-age=3600',  # Cache for 1 hour
+                'CacheControl': 'public, max-age=1800',  # Cache for 30 minutes
             }
         )
         
         logger.info(f"✅ Successfully uploaded to R2!")
         
-        # Generate R2 dev URL (bypasses Cloudflare cache)
-        r2_dev_url = f"https://pub-{account_id.replace('-', '')}.r2.dev/{object_name}"
-        logger.info(f"🔗 R2 Dev URL: {r2_dev_url}")
-        
-        # Also show custom domain if set
-        custom_domain = os.getenv('R2_CUSTOM_DOMAIN')
-        if custom_domain:
-            logger.info(f"🔗 Custom Domain: https://{custom_domain}/{object_name} (may be cached)")
+        # Generate public URL with custom domain
+        public_url = f"https://{custom_domain}/{object_name}"
+        logger.info(f"🔗 Public URL: {public_url}")
         
         return public_url
         
