@@ -26,6 +26,7 @@ jobs:
       
       - name: Fetch screener data from vnstock
         run: |
+          cd $GITHUB_WORKSPACE
           python scripts/fetch_screener.py
       
       - name: Upload to Cloudflare R2
@@ -36,6 +37,7 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_CUSTOM_DOMAIN: screener.lightinvest.vn
         run: |
+          cd $GITHUB_WORKSPACE
           python scripts/upload_to_r2.py
       
       - name: Upload artifact (optional backup)
