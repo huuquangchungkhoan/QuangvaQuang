@@ -144,6 +144,7 @@ def convert_to_json_safe(df):
         }.get(exchange_raw, exchange_raw)
         
         stock = {
+            # Basic info
             'ticker': safe_get(row.get('ticker')),
             'company_name': safe_get(row.get('company_name')),
             'exchange': exchange_mapped,
@@ -157,26 +158,78 @@ def convert_to_json_safe(df):
             'pb': safe_get(row.get('pb')),
             'ps': safe_get(row.get('ps')),
             'ev_ebitda': safe_get(row.get('ev_ebitda')),
+            'pcf': safe_get(row.get('pcf')),
+            'peg_forward': safe_get(row.get('peg_forward')),
+            'peg_trailing': safe_get(row.get('peg_trailing')),
             
             # Profitability
             'roe': safe_get(row.get('roe')),
             'roa': safe_get(row.get('roa')),
+            'roic': safe_get(row.get('roic')),
             'gross_margin': safe_get(row.get('gross_margin')),
             'net_margin': safe_get(row.get('net_margin')),
+            'ebit_margin': safe_get(row.get('ebit_margin')),
             'eps': safe_get(row.get('eps')),
+            'bvps': safe_get(row.get('bvps')),
+            'ebitda': safe_get(row.get('ebitda')),
+            'ebit': safe_get(row.get('ebit')),
             
             # Growth
             'revenue_growth_1y': safe_get(row.get('revenue_growth_1y')),
+            'revenue_growth_5y': safe_get(row.get('revenue_growth_5y')),
             'eps_growth_1y': safe_get(row.get('eps_growth_1y')),
+            'eps_growth_5y': safe_get(row.get('eps_growth_5y')),
+            'quarter_revenue_growth': safe_get(row.get('quarter_revenue_growth')),
+            'quarter_income_growth': safe_get(row.get('quarter_income_growth')),
+            'eps_ttm_growth1_year': safe_get(row.get('eps_ttm_growth1_year')),
+            'eps_ttm_growth5_year': safe_get(row.get('eps_ttm_growth5_year')),
             
             # Technical indicators
             'rsi14': safe_get(row.get('rsi14')),
+            'rsi14_status': safe_get(row.get('rsi14_status')),
+            'price_vs_sma5': safe_get(row.get('price_vs_sma5')),
+            'price_vs_sma10': safe_get(row.get('price_vs_sma10')),
             'price_vs_sma20': safe_get(row.get('price_vs_sma20')),
             'price_vs_sma50': safe_get(row.get('price_vs_sma50')),
+            'price_vs_sma100': safe_get(row.get('price_vs_sma100')),
+            'percent_price_vs_ma20': safe_get(row.get('percent_price_vs_ma20')),
+            'percent_price_vs_ma50': safe_get(row.get('percent_price_vs_ma50')),
+            'percent_price_vs_ma100': safe_get(row.get('percent_price_vs_ma100')),
+            'tcbs_buy_sell_signal': safe_get(row.get('tcbs_buy_sell_signal')),
+            'bolling_band_signal': safe_get(row.get('bolling_band_signal')),
+            'breakout': safe_get(row.get('breakout')),
             
             # Trading
             'avg_trading_value_20d': safe_get(row.get('avg_trading_value_20d')),
             'dividend_yield': safe_get(row.get('dividend_yield')),
+            'vol_vs_sma20': safe_get(row.get('vol_vs_sma20')),
+            
+            # Momentum
+            'relative_strength_3d': safe_get(row.get('relative_strength_3d')),
+            'rel_strength_1m': safe_get(row.get('rel_strength_1m')),
+            'rel_strength_3m': safe_get(row.get('rel_strength_3m')),
+            'rel_strength_1y': safe_get(row.get('rel_strength_1y')),
+            'price_growth_1w': safe_get(row.get('price_growth_1w')),
+            'price_growth_1m': safe_get(row.get('price_growth_1m')),
+            'prev_1d_growth_pct': safe_get(row.get('prev_1d_growth_pct')),
+            'prev_1y_growth_pct': safe_get(row.get('prev_1y_growth_pct')),
+            
+            # Ratings
+            'stock_rating': safe_get(row.get('stock_rating')),
+            'business_operation': safe_get(row.get('business_operation')),
+            'business_model': safe_get(row.get('business_model')),
+            'financial_health': safe_get(row.get('financial_health')),
+            
+            # Foreign trading
+            'foreign_vol_pct': safe_get(row.get('foreign_buysell_20s')),
+            'foreign_transaction': safe_get(row.get('foreign_transaction')),
+            'active_buy_pct': safe_get(row.get('active_buy_pct')),
+            'strong_buy_pct': safe_get(row.get('strong_buy_pct')),
+            
+            # Additional
+            'beta': safe_get(row.get('beta')),
+            'alpha': safe_get(row.get('alpha')),
+            'ev': safe_get(row.get('ev')),
         }
         
         # Only add stocks with basic data
