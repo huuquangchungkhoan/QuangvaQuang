@@ -265,6 +265,8 @@ def main():
         }
         
         # Save to file
+        import os
+        os.makedirs('data', exist_ok=True)
         output_file = 'data/screener.json'
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
