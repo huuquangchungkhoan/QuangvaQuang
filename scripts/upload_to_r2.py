@@ -58,8 +58,9 @@ def upload_to_r2():
         
         logger.info(f"✅ Successfully uploaded to R2!")
         
-        # Generate public URL
-        public_url = f"https://{bucket_name}.{account_id}.r2.dev/{object_name}"
+        # Generate public URL (use custom domain if available)
+        custom_domain = os.getenv('R2_CUSTOM_DOMAIN', 'data.lightinvest.vn')
+        public_url = f"https://{custom_domain}/{object_name}"
         logger.info(f"🔗 Public URL: {public_url}")
         
         return public_url
