@@ -266,8 +266,13 @@ def main():
         
         # Save to file
         import os
-        os.makedirs('data', exist_ok=True)
-        output_file = 'data/screener.json'
+        # Ensure data directory exists (relative to project root)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        data_dir = os.path.join(project_root, 'data')
+        os.makedirs(data_dir, exist_ok=True)
+        
+        output_file = os.path.join(data_dir, 'screener.json')
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         
