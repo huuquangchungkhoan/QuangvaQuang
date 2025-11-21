@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def upload_to_r2():
-    """Upload screener.json to Cloudflare R2 bucket"""
+    """Upload screener.json and funds.json to Cloudflare R2 bucket"""
     
     # Get R2 credentials from environment variables
     account_id = os.getenv('R2_ACCOUNT_ID')
@@ -39,50 +39,62 @@ def upload_to_r2():
         region_name='auto'  # R2 doesn't use regions
     )
     
-    # Upload file (use absolute path relative to project root)
+    # Get project root path
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
-    file_path = os.path.join(project_root, 'data', 'screener.json')
-    object_name = 'screener.json'
+    
+    # Files to upload
+    files_to_upload = [
+        ('screener.json', 'screener.json'),
+        ('funds.json', 'funds.json')
+    ]
+    
+    uploaded_urls = []
     
     try:
-        logger.info(f"📤 Uploading {file_path} to R2 bucket '{bucket_name}'...")
+        for filename, object_name in files_to_upload:
+            file_path = os.path.join(project_root, 'data', filename)
+            
+            if not os.path.exists(file_path):
+                logger.warning(f"⚠️  File not found, skipping: {filename}")
+                continue
+            
+            logger.info(f"📤 Uploading {filename}...")
+            
+            # Upload with proper cache headers (30 minutes)
+            s3_client.upload_file(
+                file_path,
+                bucket_name,
+                object_name,
+                ExtraArgs={
+                    'ContentType': 'application/json',
+                    'CacheControl': 'public, max-age=1800',  # Cache for 30 minutes
+                }
+            )
+            
+            uploaded_urls.append(object_name)
+            logger.info(f"✅ Uploaded {filename}")
         
-        # Upload with proper cache headers (30 minutes)
-        s3_client.upload_file(
-            file_path,
-            bucket_name,
-            object_name,
-            ExtraArgs={
-                'ContentType': 'application/json',
-                'CacheControl': 'public, max-age=1800',  # Cache for 30 minutes
-            }
-        )
+        logger.info(f"✅ Successfully uploaded {len(uploaded_urls)} files")
         
-        logger.info(f"✅ Successfully uploaded to R2!")
-        
-        # Generate public URL with custom domain
-        public_url = f"https://{custom_domain}/{object_name}"
-        logger.info(f"🔗 Public URL: {public_url}")
-        
-        return public_url
+        return uploaded_urls
         
     except ClientError as e:
         logger.error(f"❌ Upload failed: {e}")
         raise
-    except FileNotFoundError:
-        logger.error(f"❌ File not found: {file_path}")
+    except Exception as e:
+        logger.error(f"❌ Error: {e}")
         raise
 
 
 def main():
     """Main execution function"""
     try:
-        public_url = upload_to_r2()
+        files = upload_to_r2()
         
         print("\n" + "="*50)
         print("✅ Upload to R2 completed!")
-        print(f"🔗 Public URL: {public_url}")
+        print(f"� Uploaded {len(files)} files")
         print("="*50 + "\n")
         
     except Exception as e:

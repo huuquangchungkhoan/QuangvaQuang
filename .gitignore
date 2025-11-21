@@ -29,3 +29,16 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+
+# Sensitive files - DO NOT COMMIT
+SECRETS_SETUP.md
+.env*
+
+# Test files
+test_*.py
+*_test.py
+
+# Old Flask files (deprecated)
+data_manager.py
+fund_routes.py
+screener_routes.py

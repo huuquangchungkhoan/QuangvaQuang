@@ -29,6 +29,11 @@ jobs:
           cd $GITHUB_WORKSPACE
           python scripts/fetch_screener.py
       
+      - name: Fetch fund data from vnstock
+        run: |
+          cd $GITHUB_WORKSPACE
+          python scripts/fetch_funds.py
+      
       - name: Upload to Cloudflare R2
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}

@@ -277,7 +277,7 @@ def main():
             json.dump(output, f, ensure_ascii=False, indent=2)
         
         elapsed = time.time() - start_time
-        logger.info(f"✅ Successfully saved {len(stocks)} stocks to {output_file}")
+        logger.info(f"✅ Successfully saved {len(stocks)} stocks")
         logger.info(f"⏱️  Total time: {elapsed:.2f}s")
         
         # Print summary
@@ -287,7 +287,6 @@ def main():
         print(f"🏢 HOSE: {output['exchanges']['HOSE']}")
         print(f"🏢 HNX: {output['exchanges']['HNX']}")
         print(f"🏢 UPCOM: {output['exchanges']['UPCOM']}")
-        print(f"📁 Output: {output_file}")
         print("="*50 + "\n")
         
     except Exception as e:
