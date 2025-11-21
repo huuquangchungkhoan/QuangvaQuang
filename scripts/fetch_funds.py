@@ -7,7 +7,6 @@ Designed to run on GitHub Actions daily
 import json
 import time
 from datetime import datetime
-import concurrent.futures
 import pandas as pd
 from vnstock import Fund
 import logging
@@ -139,15 +138,20 @@ def main():
                 symbols.append(symbol)
                 fund_ids.append(fund_id)
         
-        # Parallel fetch with max 5 workers to avoid rate limits
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(fetch_fund_details, symbol, fund_id) 
-                      for symbol, fund_id in zip(symbols, fund_ids)]
+        # Sequential fetch with rate limiting: 50 requests/minute
+        request_delay = 1.2  # 50 requests per minute
+        logger.info(f"⏱️  Rate limit: 50 requests/minute ({request_delay}s/request)")
+        
+        for idx, (symbol, fund_id) in enumerate(zip(symbols, fund_ids), 1):
+            logger.info(f"[{idx}/{len(symbols)}] Fetching {symbol}...")
             
-            for future in concurrent.futures.as_completed(futures):
-                symbol, details = future.result()
-                if details:
-                    fund_details_map[symbol] = details
+            symbol_result, details = fetch_fund_details(symbol, fund_id)
+            if details:
+                fund_details_map[symbol_result] = details
+            
+            # Rate limiting - sleep between requests
+            if idx < len(symbols):
+                time.sleep(request_delay)
         
         logger.info(f"✅ Fetched details for {len(fund_details_map)} funds")
         
