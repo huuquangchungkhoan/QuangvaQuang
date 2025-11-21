@@ -70,33 +70,12 @@ def fetch_vietcap_foreign_flow(symbol):
         return []
 
 
-def fetch_vietcap_pe_pb_history(symbol):
-    """Fetch P/E and P/B history from Vietcap API"""
-    try:
-        url = f'https://iq.vietcap.com.vn/api/iq-insight-service/v1/company-ratio-daily/{symbol}?lengthReport=10'
-        headers = {
-            'accept': 'application/json',
-            'origin': 'https://trading.vietcap.com.vn',
-            'referer': 'https://trading.vietcap.com.vn/',
-            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        }
-        
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        data = response.json()
-        if data.get('successful') and data.get('data'):
-            # Return last 90 days only
-            return data['data'][-90:] if len(data['data']) > 90 else data['data']
-        return []
-        
-    except Exception as e:
-        logger.warning(f"Failed to fetch PE/PB history for {symbol}: {e}")
-        return []
+# PE/PB history is now fetched separately in fetch_ratios.py
+# This script only fetches daily updated data
 
 
 def fetch_vietcap_financial_stats(symbol):
-    """Fetch financial statistics from Vietcap API"""
+    """Fetch financial statistics from Vietcap API - last 20 quarters (5 years)"""
     try:
         url = f'https://iq.vietcap.com.vn/api/iq-insight-service/v1/company/{symbol}/statistics-financial'
         headers = {
@@ -111,8 +90,8 @@ def fetch_vietcap_financial_stats(symbol):
         
         data = response.json()
         if data.get('successful') and data.get('data'):
-            # Return last 8 quarters (2 years)
-            return data['data'][-8:] if len(data['data']) > 8 else data['data']
+            # Return last 20 quarters (5 years)
+            return data['data'][-20:] if len(data['data']) > 20 else data['data']
         return []
         
     except Exception as e:
@@ -129,7 +108,7 @@ def fetch_company_details(symbol):
             'data_source': 'vietcap'
         }
         
-        # Fetch all 3 endpoints
+        # Fetch daily updated data only (ratios history in separate script)
         overview = fetch_vietcap_overview(symbol)
         if overview:
             details['overview'] = overview
@@ -138,14 +117,10 @@ def fetch_company_details(symbol):
         if foreign_flow:
             details['foreign_flow_90d'] = foreign_flow
         
-        pe_pb_history = fetch_vietcap_pe_pb_history(symbol)
-        if pe_pb_history:
-            details['pe_pb_history_90d'] = pe_pb_history
-        
-        # Get financial statistics
+        # Get financial statistics (20 quarters / 5 years)
         financial_stats = fetch_vietcap_financial_stats(symbol)
         if financial_stats:
-            details['financial_stats_2y'] = financial_stats
+            details['financial_stats_5y'] = financial_stats
         
         # Only return if we got at least overview
         if 'overview' in details:
