@@ -129,25 +129,35 @@ def main():
                 screener_data = json.load(f)
                 all_stocks = [stock['ticker'] for stock in screener_data.get('stocks', [])]
         else:
-            logger.info("Screener.json not found, fetching fresh data...")
-            # Use same logic as fetch_screener.py
-            screener = Screener()
-            for exchange in ['HOSE', 'HNX', 'UPCOM']:
-                logger.info(f"Loading {exchange}...")
-                try:
-                    if exchange == 'HOSE':
-                        df = screener.stock(exchange='HSX')
-                    elif exchange == 'HNX':
-                        df = screener.stock(exchange='HNX')
-                    else:
-                        df = screener.stock(exchange='UPCOM')
-                    
-                    if not df.empty:
-                        symbols = df['ticker'].tolist()
-                        all_stocks.extend(symbols)
-                        logger.info(f"✅ {exchange}: {len(symbols)} stocks")
-                except Exception as e:
-                    logger.warning(f"Failed to load {exchange}: {e}")
+            logger.info("Screener.json not found, downloading from R2...")
+            # Download screener.json from R2
+            try:
+                response = requests.get('https://screener.lightinvest.vn/screener.json', timeout=30)
+                response.raise_for_status()
+                screener_data = response.json()
+                all_stocks = [stock['ticker'] for stock in screener_data.get('stocks', [])]
+                logger.info(f"✅ Downloaded screener data from R2")
+            except Exception as e:
+                logger.error(f"Failed to download screener.json from R2: {e}")
+                logger.info("Falling back to vnstock...")
+                # Fallback to vnstock
+                screener = Screener()
+                for exchange in ['HOSE', 'HNX', 'UPCOM']:
+                    logger.info(f"Loading {exchange}...")
+                    try:
+                        if exchange == 'HOSE':
+                            df = screener.stock(exchange='HSX')
+                        elif exchange == 'HNX':
+                            df = screener.stock(exchange='HNX')
+                        else:
+                            df = screener.stock(exchange='UPCOM')
+                        
+                        if not df.empty:
+                            symbols = df['ticker'].tolist()
+                            all_stocks.extend(symbols)
+                            logger.info(f"✅ {exchange}: {len(symbols)} stocks")
+                    except Exception as e:
+                        logger.warning(f"Failed to load {exchange}: {e}")
         
         if not all_stocks:
             logger.error("No stocks found!")
