@@ -24,40 +24,33 @@ jobs:
           pip install --upgrade pip
           pip install vnstock boto3 pandas requests
       
-      - name: Fetch all data in parallel
+      - name: Fetch screener and funds
         run: |
           cd $GITHUB_WORKSPACE
           
-          # Run all 3 fetches in parallel for maximum speed
+          # Run screener and funds in parallel
           python scripts/fetch_screener.py &
           PID1=$!
           
           python scripts/fetch_funds_hybrid.py &
           PID2=$!
           
-          python scripts/fetch_company_vietcap.py &
-          PID3=$!
-          
-          # Wait for all to complete
+          # Wait for both to complete
           wait $PID1
           EXIT1=$?
           
           wait $PID2
           EXIT2=$?
           
-          wait $PID3
-          EXIT3=$?
-          
           # Check if any failed
-          if [ $EXIT1 -ne 0 ] || [ $EXIT2 -ne 0 ] || [ $EXIT3 -ne 0 ]; then
+          if [ $EXIT1 -ne 0 ] || [ $EXIT2 -ne 0 ]; then
             echo "❌ One or more fetches failed:"
             echo "Screener: $EXIT1"
             echo "Funds: $EXIT2"
-            echo "Companies: $EXIT3"
             exit 1
           fi
           
-          echo "✅ All data fetched successfully!"
+          echo "✅ Screener and funds fetched successfully!"
       
       - name: Upload to Cloudflare R2
         env:
@@ -75,5 +68,3 @@ jobs:
           echo "📊 Data Summary:"
           echo "Screener: $(ls -lh data/screener.json | awk '{print $5}')"
           echo "Funds: $(ls -lh data/funds.json | awk '{print $5}')"
-          echo "Companies: $(ls data/companies/*.json | wc -l) files"
-          echo "Total size: $(du -sh data/companies/ | awk '{print $1}')"

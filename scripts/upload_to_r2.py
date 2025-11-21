@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def upload_to_r2():
-    """Upload screener.json, funds.json and company details to R2"""
+    """Upload screener.json and funds.json to R2 (NOT companies - use upload_companies.py for that)"""
     
     # Get R2 credentials
     account_id = os.getenv('R2_ACCOUNT_ID')
@@ -43,7 +43,7 @@ def upload_to_r2():
     uploaded_count = 0
     
     try:
-        # Upload screener + funds
+        # Upload ONLY screener + funds (companies are handled by upload_companies.py)
         for filename in ['screener.json', 'funds.json']:
             file_path = os.path.join(project_root, 'data', filename)
             
@@ -63,31 +63,7 @@ def upload_to_r2():
             )
             uploaded_count += 1
         
-        # Upload company files
-        companies_dir = os.path.join(project_root, 'data', 'companies')
-        if os.path.exists(companies_dir):
-            company_files = [f for f in os.listdir(companies_dir) if f.endswith('.json')]
-            
-            if company_files:
-                logger.info(f"Uploading {len(company_files)} companies...")
-                
-                for filename in company_files:
-                    file_path = os.path.join(companies_dir, filename)
-                    s3_client.upload_file(
-                        file_path,
-                        bucket_name,
-                        f"companies/{filename}",
-                        ExtraArgs={
-                            'ContentType': 'application/json',
-                            'CacheControl': 'public, max-age=3600',
-                        }
-                    )
-                    uploaded_count += 1
-                    
-                    if uploaded_count % 100 == 0:
-                        logger.info(f"Progress: {uploaded_count}")
-        
-        logger.info(f"Uploaded {uploaded_count} files")
+        logger.info(f"✅ Uploaded {uploaded_count} files (screener + funds only)")
         return uploaded_count
         
     except Exception as e:
