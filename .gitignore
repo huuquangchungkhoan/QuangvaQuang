@@ -1,5 +1,6 @@
 # Data directory for generated JSON files
 /data/*.json
+/data/companies/
 
 # Python
 __pycache__/

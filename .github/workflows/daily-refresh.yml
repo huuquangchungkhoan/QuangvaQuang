@@ -2,8 +2,10 @@ name: Daily Screener Data Refresh
 
 on:
   schedule:
-    # Run at 8:00 AM UTC+7 (1:00 AM UTC) every day
+    # Run at 8:00 AM UTC+7 (1:00 AM UTC) every day - screener + funds
     - cron: '0 1 * * *'
+    # Run at 5:00 PM UTC+7 (10:00 AM UTC) every day - company details
+    - cron: '0 10 * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
@@ -33,6 +35,12 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           python scripts/fetch_funds.py
+      
+      - name: Fetch company details (if 5PM run)
+        if: github.event.schedule == '0 10 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          cd $GITHUB_WORKSPACE
+          python scripts/fetch_company_details.py
       
       - name: Upload to Cloudflare R2
         env:

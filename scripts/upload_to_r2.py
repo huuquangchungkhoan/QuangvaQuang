@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Upload screener.json to Cloudflare R2
-Uses boto3 (S3-compatible API)
+Upload JSON files to Cloudflare R2
 """
 import os
 import boto3
@@ -16,91 +15,94 @@ logger = logging.getLogger(__name__)
 
 
 def upload_to_r2():
-    """Upload screener.json and funds.json to Cloudflare R2 bucket"""
+    """Upload screener.json, funds.json and company details to R2"""
     
-    # Get R2 credentials from environment variables
+    # Get R2 credentials
     account_id = os.getenv('R2_ACCOUNT_ID')
     access_key = os.getenv('R2_ACCESS_KEY_ID')
     secret_key = os.getenv('R2_SECRET_ACCESS_KEY')
     bucket_name = os.getenv('R2_BUCKET_NAME')
-    custom_domain = os.getenv('R2_CUSTOM_DOMAIN')
     
     if not all([account_id, access_key, secret_key]):
-        raise ValueError("❌ Missing R2 credentials in environment variables")
+        raise ValueError("Missing R2 credentials")
     
-    # Configure S3 client for R2
+    # Configure S3 client
     endpoint_url = f'https://{account_id}.r2.cloudflarestorage.com'
-    
     s3_client = boto3.client(
         's3',
         endpoint_url=endpoint_url,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
-        region_name='auto'  # R2 doesn't use regions
+        region_name='auto'
     )
     
-    # Get project root path
+    # Get paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     
-    # Files to upload
-    files_to_upload = [
-        ('screener.json', 'screener.json'),
-        ('funds.json', 'funds.json')
-    ]
-    
-    uploaded_urls = []
+    uploaded_count = 0
     
     try:
-        for filename, object_name in files_to_upload:
+        # Upload screener + funds
+        for filename in ['screener.json', 'funds.json']:
             file_path = os.path.join(project_root, 'data', filename)
             
             if not os.path.exists(file_path):
-                logger.warning(f"⚠️  File not found, skipping: {filename}")
+                logger.warning(f"Skipping {filename}")
                 continue
             
-            logger.info(f"📤 Uploading {filename}...")
-            
-            # Upload with proper cache headers (30 minutes)
+            logger.info(f"Uploading {filename}...")
             s3_client.upload_file(
                 file_path,
                 bucket_name,
-                object_name,
+                filename,
                 ExtraArgs={
                     'ContentType': 'application/json',
-                    'CacheControl': 'public, max-age=1800',  # Cache for 30 minutes
+                    'CacheControl': 'public, max-age=1800',
                 }
             )
+            uploaded_count += 1
+        
+        # Upload company files
+        companies_dir = os.path.join(project_root, 'data', 'companies')
+        if os.path.exists(companies_dir):
+            company_files = [f for f in os.listdir(companies_dir) if f.endswith('.json')]
             
-            uploaded_urls.append(object_name)
-            logger.info(f"✅ Uploaded {filename}")
+            if company_files:
+                logger.info(f"Uploading {len(company_files)} companies...")
+                
+                for filename in company_files:
+                    file_path = os.path.join(companies_dir, filename)
+                    s3_client.upload_file(
+                        file_path,
+                        bucket_name,
+                        f"companies/{filename}",
+                        ExtraArgs={
+                            'ContentType': 'application/json',
+                            'CacheControl': 'public, max-age=3600',
+                        }
+                    )
+                    uploaded_count += 1
+                    
+                    if uploaded_count % 100 == 0:
+                        logger.info(f"Progress: {uploaded_count}")
         
-        logger.info(f"✅ Successfully uploaded {len(uploaded_urls)} files")
+        logger.info(f"Uploaded {uploaded_count} files")
+        return uploaded_count
         
-        return uploaded_urls
-        
-    except ClientError as e:
-        logger.error(f"❌ Upload failed: {e}")
-        raise
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"Upload failed: {e}")
         raise
 
 
 def main():
-    """Main execution function"""
     try:
-        files = upload_to_r2()
-        
+        count = upload_to_r2()
         print("\n" + "="*50)
-        print("✅ Upload to R2 completed!")
-        print(f"� Uploaded {len(files)} files")
+        print(f"Uploaded {count} files")
         print("="*50 + "\n")
-        
     except Exception as e:
-        logger.error(f"❌ Fatal error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Fatal error: {e}")
         exit(1)
 
 
