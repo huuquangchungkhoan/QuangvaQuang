@@ -135,21 +135,47 @@ def main():
         start_time = time.time()
         logger.info("🚀 Starting Vietcap company data fetch...")
         
-        # Get all stock symbols from screener
-        logger.info("📡 Fetching stock list...")
-        screener = Screener()
+        # Get all stock symbols from fetch_screener.py data
+        logger.info("📡 Loading stock list from screener data...")
         
-        try:
-            df = screener.stock()
-            if not df.empty:
-                all_stocks = df['ticker'].tolist()
-                logger.info(f"✅ Found {len(all_stocks)} stocks")
-            else:
-                logger.error("No stocks found!")
-                return
-        except Exception as e:
-            logger.error(f"Failed to load stock list: {e}")
+        # Read from screener.json if exists, otherwise fetch fresh
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        screener_file = os.path.join(project_root, 'data', 'screener.json')
+        
+        all_stocks = []
+        
+        if os.path.exists(screener_file):
+            logger.info("Using existing screener.json")
+            with open(screener_file, 'r', encoding='utf-8') as f:
+                screener_data = json.load(f)
+                all_stocks = [stock['ticker'] for stock in screener_data.get('stocks', [])]
+        else:
+            logger.info("Screener.json not found, fetching fresh data...")
+            # Use same logic as fetch_screener.py
+            screener = Screener()
+            for exchange in ['HOSE', 'HNX', 'UPCOM']:
+                logger.info(f"Loading {exchange}...")
+                try:
+                    if exchange == 'HOSE':
+                        df = screener.stock(exchange='HSX')
+                    elif exchange == 'HNX':
+                        df = screener.stock(exchange='HNX')
+                    else:
+                        df = screener.stock(exchange='UPCOM')
+                    
+                    if not df.empty:
+                        symbols = df['ticker'].tolist()
+                        all_stocks.extend(symbols)
+                        logger.info(f"✅ {exchange}: {len(symbols)} stocks")
+                except Exception as e:
+                    logger.warning(f"Failed to load {exchange}: {e}")
+        
+        if not all_stocks:
+            logger.error("No stocks found!")
             return
+            
+        logger.info(f"✅ Found {len(all_stocks)} stocks")
         
         # Create output directory
         script_dir = os.path.dirname(os.path.abspath(__file__))

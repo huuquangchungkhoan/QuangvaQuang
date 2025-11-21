@@ -2,10 +2,8 @@ name: Daily Screener Data Refresh
 
 on:
   schedule:
-    # Run at 8:00 AM UTC+7 (1:00 AM UTC) every day - screener + funds
-    - cron: '0 1 * * *'
-    # Run at 5:00 PM UTC+7 (10:00 AM UTC) every day - company details
-    - cron: '0 10 * * *'
+    # Run every 30 minutes to get fresh data and avoid API rate limits
+    - cron: '*/30 * * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
@@ -36,8 +34,7 @@ jobs:
           cd $GITHUB_WORKSPACE
           python scripts/fetch_funds.py
       
-      - name: Fetch company details via Vietcap API (if 5PM run)
-        if: github.event.schedule == '0 10 * * *' || github.event_name == 'workflow_dispatch'
+      - name: Fetch company details via Vietcap API
         run: |
           cd $GITHUB_WORKSPACE
           python scripts/fetch_company_vietcap.py
