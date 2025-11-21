@@ -35,6 +35,10 @@ SECRETS_SETUP.md
 .env*
 .github/copilot-instructions.md
 
+# Cloudflare Workers (contains bucket names and domains)
+workers/
+wrangler.toml
+
 # Test files
 test_*.py
 *_test.py
