@@ -138,9 +138,9 @@ def main():
                 symbols.append(symbol)
                 fund_ids.append(fund_id)
         
-        # Sequential fetch with rate limiting: 50 requests/minute
-        request_delay = 1.2  # 50 requests per minute
-        logger.info(f"⏱️  Rate limit: 50 requests/minute ({request_delay}s/request)")
+        # Sequential fetch with rate limiting: Very conservative 10s delay for strict fund API
+        request_delay = 10  # vnstock fund API has very strict rate limits - need 10s delay
+        logger.info(f"⏱️  Rate limit: Very conservative delay ({request_delay}s/request)")
         
         for idx, (symbol, fund_id) in enumerate(zip(symbols, fund_ids), 1):
             logger.info(f"[{idx}/{len(symbols)}] Fetching {symbol}...")
