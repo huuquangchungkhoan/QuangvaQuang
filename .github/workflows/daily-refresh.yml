@@ -29,10 +29,10 @@ jobs:
           cd $GITHUB_WORKSPACE
           python scripts/fetch_screener.py
       
-      - name: Fetch fund data from vnstock
+      - name: Fetch fund data from fmarket API
         run: |
           cd $GITHUB_WORKSPACE
-          python scripts/fetch_funds.py
+          python scripts/fetch_funds_fmarket.py
       
       - name: Fetch company details via Vietcap API
         run: |
