@@ -32,7 +32,7 @@ jobs:
           python scripts/fetch_screener.py &
           PID1=$!
           
-          python scripts/fetch_funds_fmarket.py &
+          python scripts/fetch_funds_hybrid.py &
           PID2=$!
           
           python scripts/fetch_company_vietcap.py &
