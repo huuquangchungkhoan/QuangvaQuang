@@ -95,6 +95,31 @@ def fetch_vietcap_pe_pb_history(symbol):
         return []
 
 
+def fetch_vietcap_financial_stats(symbol):
+    """Fetch financial statistics from Vietcap API"""
+    try:
+        url = f'https://iq.vietcap.com.vn/api/iq-insight-service/v1/company/{symbol}/statistics-financial'
+        headers = {
+            'accept': 'application/json',
+            'origin': 'https://trading.vietcap.com.vn',
+            'referer': 'https://trading.vietcap.com.vn/',
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        if data.get('successful') and data.get('data'):
+            # Return last 8 quarters (2 years)
+            return data['data'][-8:] if len(data['data']) > 8 else data['data']
+        return []
+        
+    except Exception as e:
+        logger.warning(f"Failed to fetch financial stats for {symbol}: {e}")
+        return []
+
+
 def fetch_company_details(symbol):
     """Fetch all company information from Vietcap API"""
     try:
@@ -116,6 +141,11 @@ def fetch_company_details(symbol):
         pe_pb_history = fetch_vietcap_pe_pb_history(symbol)
         if pe_pb_history:
             details['pe_pb_history_90d'] = pe_pb_history
+        
+        # Get financial statistics
+        financial_stats = fetch_vietcap_financial_stats(symbol)
+        if financial_stats:
+            details['financial_stats_2y'] = financial_stats
         
         # Only return if we got at least overview
         if 'overview' in details:
