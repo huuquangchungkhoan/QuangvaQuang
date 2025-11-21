@@ -22,8 +22,8 @@ def upload_to_r2():
     account_id = os.getenv('R2_ACCOUNT_ID')
     access_key = os.getenv('R2_ACCESS_KEY_ID')
     secret_key = os.getenv('R2_SECRET_ACCESS_KEY')
-    bucket_name = os.getenv('R2_BUCKET_NAME', 'screener')
-    custom_domain = os.getenv('R2_CUSTOM_DOMAIN', 'screener.lightinvest.vn')
+    bucket_name = os.getenv('R2_BUCKET_NAME')
+    custom_domain = os.getenv('R2_CUSTOM_DOMAIN')
     
     if not all([account_id, access_key, secret_key]):
         raise ValueError("❌ Missing R2 credentials in environment variables")
