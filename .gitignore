@@ -47,3 +47,4 @@ test_*.py
 data_manager.py
 fund_routes.py
 screener_routes.py
+.env.example
