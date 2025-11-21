@@ -1,13 +1,3 @@
-# Vietnamese Stock Data Pipeline
+# Quang và Quang
 
-Automated data processing for Vietnamese stock market.
 
-## Tech Stack
-
-- Python 3.12
-- GitHub Actions
-- Cloudflare R2
-
-## License
-
-Private project
