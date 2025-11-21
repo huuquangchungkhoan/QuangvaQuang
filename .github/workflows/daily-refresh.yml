@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install vnstock boto3 pandas
+          pip install vnstock boto3 pandas requests
       
       - name: Fetch screener data from vnstock
         run: |
@@ -36,11 +36,11 @@ jobs:
           cd $GITHUB_WORKSPACE
           python scripts/fetch_funds.py
       
-      - name: Fetch company details (if 5PM run)
+      - name: Fetch company details via Vietcap API (if 5PM run)
         if: github.event.schedule == '0 10 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           cd $GITHUB_WORKSPACE
-          python scripts/fetch_company_details.py
+          python scripts/fetch_company_vietcap.py
       
       - name: Upload to Cloudflare R2
         env:
