@@ -9,6 +9,7 @@ import json
 import time
 import os
 from datetime import datetime
+import pandas as pd
 from vnstock import Company, Screener
 import logging
 
@@ -17,6 +18,22 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def convert_to_json_safe(data):
+    """Convert pandas timestamps and other non-JSON types to JSON-safe formats"""
+    if isinstance(data, dict):
+        return {k: convert_to_json_safe(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_to_json_safe(item) for item in data]
+    elif pd.isna(data):
+        return None
+    elif isinstance(data, (pd.Timestamp, datetime)):
+        return data.isoformat()
+    elif isinstance(data, (int, float, str, bool)) or data is None:
+        return data
+    else:
+        return str(data)
 
 
 def fetch_company_details(symbol):
@@ -32,7 +49,7 @@ def fetch_company_details(symbol):
         try:
             overview_df = company.overview()
             if not overview_df.empty:
-                details['overview'] = overview_df.to_dict('records')[0]
+                details['overview'] = convert_to_json_safe(overview_df.to_dict('records')[0])
         except Exception as e:
             logger.warning(f"No overview for {symbol}")
             details['overview'] = None
@@ -41,7 +58,7 @@ def fetch_company_details(symbol):
         try:
             profile_df = company.profile()
             if not profile_df.empty:
-                details['profile'] = profile_df.to_dict('records')[0]
+                details['profile'] = convert_to_json_safe(profile_df.to_dict('records')[0])
         except Exception as e:
             logger.warning(f"No profile for {symbol}")
             details['profile'] = None
@@ -50,7 +67,7 @@ def fetch_company_details(symbol):
         try:
             shareholders_df = company.shareholders()
             if not shareholders_df.empty:
-                details['shareholders'] = shareholders_df.to_dict('records')
+                details['shareholders'] = convert_to_json_safe(shareholders_df.to_dict('records'))
         except Exception as e:
             details['shareholders'] = []
         
@@ -58,7 +75,7 @@ def fetch_company_details(symbol):
         try:
             officers_df = company.officers()
             if not officers_df.empty:
-                details['officers'] = officers_df.to_dict('records')
+                details['officers'] = convert_to_json_safe(officers_df.to_dict('records'))
         except Exception as e:
             details['officers'] = []
         
@@ -66,7 +83,7 @@ def fetch_company_details(symbol):
         try:
             subsidiaries_df = company.subsidiaries()
             if not subsidiaries_df.empty:
-                details['subsidiaries'] = subsidiaries_df.to_dict('records')
+                details['subsidiaries'] = convert_to_json_safe(subsidiaries_df.to_dict('records'))
         except Exception as e:
             details['subsidiaries'] = []
         
@@ -74,7 +91,7 @@ def fetch_company_details(symbol):
         try:
             dividends_df = company.dividends()
             if not dividends_df.empty:
-                details['dividends'] = dividends_df.to_dict('records')
+                details['dividends'] = convert_to_json_safe(dividends_df.to_dict('records'))
         except Exception as e:
             details['dividends'] = []
         
@@ -82,7 +99,7 @@ def fetch_company_details(symbol):
         try:
             events_df = company.events()
             if not events_df.empty:
-                details['events'] = events_df.to_dict('records')
+                details['events'] = convert_to_json_safe(events_df.to_dict('records'))
         except Exception as e:
             details['events'] = []
         
@@ -90,7 +107,7 @@ def fetch_company_details(symbol):
         try:
             insider_df = company.insider_deals()
             if not insider_df.empty:
-                details['insider_deals'] = insider_df.to_dict('records')
+                details['insider_deals'] = convert_to_json_safe(insider_df.to_dict('records'))
         except Exception as e:
             details['insider_deals'] = []
         
@@ -99,7 +116,7 @@ def fetch_company_details(symbol):
             news_df = company.news()
             if not news_df.empty:
                 # Limit to latest 20 news
-                details['news'] = news_df.head(20).to_dict('records')
+                details['news'] = convert_to_json_safe(news_df.head(20).to_dict('records'))
         except Exception as e:
             details['news'] = []
         
@@ -137,13 +154,13 @@ def main():
         companies_dir = os.path.join(project_root, 'data', 'companies')
         os.makedirs(companies_dir, exist_ok=True)
         
-        # Rate limiting: 50 requests per minute = 1 request per 1.2 seconds
-        request_delay = 1.2
+        # Rate limiting: TCBS company API has very strict limits - need 10s delay
+        request_delay = 10
         success_count = 0
         fail_count = 0
         
         logger.info(f"📊 Fetching details for {len(all_stocks)} companies")
-        logger.info(f"⏱️  Rate limit: 50 requests/minute ({request_delay}s/request)")
+        logger.info(f"⏱️  Rate limit: Very conservative delay ({request_delay}s/request)")
         
         for idx, symbol in enumerate(all_stocks, 1):
             logger.info(f"[{idx}/{len(all_stocks)}] Fetching {symbol}...")
