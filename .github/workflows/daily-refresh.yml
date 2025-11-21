@@ -24,20 +24,40 @@ jobs:
           pip install --upgrade pip
           pip install vnstock boto3 pandas requests
       
-      - name: Fetch screener data from vnstock
+      - name: Fetch all data in parallel (screener + funds + companies)
         run: |
           cd $GITHUB_WORKSPACE
-          python scripts/fetch_screener.py
-      
-      - name: Fetch fund data from fmarket API
-        run: |
-          cd $GITHUB_WORKSPACE
-          python scripts/fetch_funds_fmarket.py
-      
-      - name: Fetch company details via Vietcap API
-        run: |
-          cd $GITHUB_WORKSPACE
-          python scripts/fetch_company_vietcap.py
+          
+          # Run all 3 fetches in parallel
+          python scripts/fetch_screener.py &
+          PID1=$!
+          
+          python scripts/fetch_funds_fmarket.py &
+          PID2=$!
+          
+          python scripts/fetch_company_vietcap.py &
+          PID3=$!
+          
+          # Wait for all to complete
+          wait $PID1
+          EXIT1=$?
+          
+          wait $PID2
+          EXIT2=$?
+          
+          wait $PID3
+          EXIT3=$?
+          
+          # Check if any failed
+          if [ $EXIT1 -ne 0 ] || [ $EXIT2 -ne 0 ] || [ $EXIT3 -ne 0 ]; then
+            echo "❌ One or more fetches failed:"
+            echo "Screener: $EXIT1"
+            echo "Funds: $EXIT2"
+            echo "Companies: $EXIT3"
+            exit 1
+          fi
+          
+          echo "✅ All data fetched successfully!"
       
       - name: Upload to Cloudflare R2
         env:
