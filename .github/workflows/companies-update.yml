@@ -2,9 +2,9 @@ name: Update Companies Data
 
 on:
   schedule:
-    # Run every 30 minutes during Vietnam market hours (8:45-15:00 VN = 1:45-8:00 UTC)
-    # Weekdays only: at :15 and :45 of each hour from 1-7 UTC
-    - cron: '15,45 1-7 * * 1-5'
+    # Run twice daily: 12:00 VN (5:00 UTC) and 15:00 VN (8:00 UTC)
+    # Weekdays only
+    - cron: '0 5,8 * * 1-5'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
