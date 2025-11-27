@@ -12,7 +12,7 @@ R2_ACCOUNT_ID = os.environ.get('R2_ACCOUNT_ID')
 R2_ACCESS_KEY_ID = os.environ.get('R2_ACCESS_KEY_ID')
 R2_SECRET_ACCESS_KEY = os.environ.get('R2_SECRET_ACCESS_KEY')
 BUCKET_NAME = 'screener'
-FILE_PATH = Path('data/technical_analysis.json')
+FILE_PATH = Path('data/technical_analysis.arrow')
 
 def upload_to_r2():
     if not all([R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY]):
@@ -31,8 +31,8 @@ def upload_to_r2():
         region_name='auto'
     )
 
-    # Upload to technical_analysis.json (root)
-    s3_key = 'technical_analysis.json'
+    # Upload to technical_analysis.arrow (root)
+    s3_key = 'technical_analysis.arrow'
     
     try:
         print(f"📤 Uploading {FILE_PATH} to R2 bucket '{BUCKET_NAME}' as {s3_key}...")
@@ -43,7 +43,7 @@ def upload_to_r2():
                 BUCKET_NAME, 
                 s3_key,
                 ExtraArgs={
-                    'ContentType': 'application/json',
+                    'ContentType': 'application/vnd.apache.arrow.stream',
                     'CacheControl': 'public, max-age=300'  # 5 minutes cache
                 }
             )

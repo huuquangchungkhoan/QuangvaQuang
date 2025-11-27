@@ -1,10 +1,10 @@
-#!/opt/homebrew/bin/python3.12
+#!/usr/bin/env python3
 """
 Fetch price data and calculate technical indicators using pandas-ta
 For each company:
 - Fetch 200 days of price data
 - Calculate 200+ technical indicators
-- Save to JSON file
+- Save to Arrow file (technical_analysis.arrow)
 
 Uses parallel processing for faster execution.
 """
@@ -14,9 +14,12 @@ import json
 import os
 from pathlib import Path
 import pandas as pd
+import pyarrow as pa
+import pyarrow.feather as feather
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
+import numpy as np
 
 try:
     import pandas_ta as ta
@@ -113,8 +116,8 @@ def fetch_price_data(ticker: str, length: int = 210) -> dict:
     except Exception as e:
         return None
 
-def process_ticker(ticker: str) -> dict:
-    """Fetch price data and calculate technical indicators for a ticker."""
+def process_ticker(ticker: str) -> pd.DataFrame:
+    """Fetch price data and calculate technical indicators for a ticker. Returns DataFrame."""
     global processed_count, success_count
     
     # Fetch price data (works for both stocks and indices)
@@ -143,6 +146,9 @@ def process_ticker(ticker: str) -> dict:
         'closingPrice': 'close',
         'tradingTime': 'date'
     })
+    
+    # Add ticker column
+    df['ticker'] = ticker
     
     # Add volume (fake data since API doesn't provide it)
     df['volume'] = 1000000  # Default volume
@@ -184,7 +190,6 @@ def process_ticker(ticker: str) -> dict:
             df['BBU_20_2.0'] = df['SMA_20'] + (std * 2)
             df['BBL_20_2.0'] = df['SMA_20'] - (std * 2)
             
-            print(f"✅ Calculated manual indicators for {ticker}")
         except Exception as e:
             print(f"❌ Manual calculation failed: {e}")
 
@@ -452,25 +457,11 @@ def process_ticker(ticker: str) -> dict:
     # Apply renaming
     df = df.rename(columns=rename_mapping)
     
-    # Convert DataFrame back to dict for JSON serialization
-    df_reset = df.reset_index()
-    df_reset['date'] = df_reset['date'].astype(str)
+    # Reset index to make date a column
+    df = df.reset_index()
     
-    # Replace NaN and Infinity with None for JSON compatibility
-    import numpy as np
-    df_reset = df_reset.replace([np.inf, -np.inf], np.nan)
-    df_dict = df_reset.where(pd.notnull(df_reset), None).to_dict(orient='records')
-    
-    # Count indicators (all columns except OHLCV and date)
-    base_cols = ['open', 'high', 'low', 'close', 'volume', 'date']
-    actual_indicator_count = len([col for col in df.columns if col not in base_cols])
-    
-    result = {
-        "ticker": ticker,
-        "candle_count": len(df_dict),
-        "indicator_count": actual_indicator_count,
-        "indicators": df_dict[-1] if df_dict else {}  # Last row contains current indicator values
-    }
+    # Replace NaN and Infinity with None for JSON compatibility (not strictly needed for Arrow but good practice)
+    df = df.replace([np.inf, -np.inf], np.nan)
     
     # Update progress
     with progress_lock:
@@ -479,23 +470,24 @@ def process_ticker(ticker: str) -> dict:
         if processed_count % 50 == 0:
             print(f"Progress: {processed_count} processed, {success_count} successful")
     
-    return result
+    return df
 
-def save_all_technical_data(all_data: dict, output_file: str = "data/technical_analysis.json"):
-    """Save all technical analysis data to a single JSON file."""
+def save_to_arrow(df: pd.DataFrame, output_file: str = "data/technical_analysis.arrow"):
+    """Save DataFrame to Arrow file."""
     # Create directory if it doesn't exist
     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
     
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(all_data, f, ensure_ascii=False, indent=2)
+    # Save as Arrow IPC (Feather)
+    feather.write_feather(df, output_file, compression='lz4')
     
-    print(f"\n💾 Saved all data to {output_file}")
+    size_mb = Path(output_file).stat().st_size / (1024 * 1024)
+    print(f"\n💾 Saved data to {output_file} ({size_mb:.1f} MB)")
 
 def main():
     global processed_count, success_count
     
     print("=" * 60)
-    print("Technical Analysis Data Fetcher (Parallel Processing)")
+    print("Technical Analysis Data Fetcher (Arrow Version)")
     print("=" * 60)
     
     # Fetch stock listings from API
@@ -512,13 +504,7 @@ def main():
     print(f"\n🔄 Processing {len(tickers)} tickers (including VNINDEX)...")
     print(f"   Using parallel processing with 20 workers\n")
 
-    # Store all results in one dict
-    all_technical_data = {
-        "serverDateTime": pd.Timestamp.now().isoformat(),
-        "total_companies": 0,
-        "successful_count": 0,
-        "data": {}
-    }
+    all_dfs = []
 
     # Process tickers in parallel using ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=20) as executor:
@@ -529,26 +515,23 @@ def main():
         for future in as_completed(future_to_ticker):
             ticker = future_to_ticker[future]
             try:
-                data = future.result()
-                if data:
-                    # Only add if we got valid price data
-                    all_technical_data["data"][ticker] = {
-                        "candle_count": data["candle_count"],
-                        "indicator_count": data["indicator_count"],
-                        "indicators": data["indicators"]
-                    }
+                df = future.result()
+                if df is not None and not df.empty:
+                    all_dfs.append(df)
             except Exception as e:
                 print(f"❌ Error processing {ticker}: {e}")
 
-    all_technical_data["total_companies"] = len(tickers)
-    all_technical_data["successful_count"] = success_count
-
-    # Save all data to one file
-    save_all_technical_data(all_technical_data)
-
-    print(f"\n✅ All done! {success_count}/{len(tickers)} tickers with price data (including VNINDEX)")
-    print(f"   Total tickers processed: {processed_count}")
-    print(f"   Success rate: {success_count}/{len(tickers)} ({100*success_count/len(tickers):.1f}%)")
+    if all_dfs:
+        print(f"\nCombining {len(all_dfs)} DataFrames...")
+        final_df = pd.concat(all_dfs, ignore_index=True)
+        
+        # Save to Arrow
+        save_to_arrow(final_df)
+        
+        print(f"\n✅ All done! {success_count}/{len(tickers)} tickers processed")
+        print(f"   Total rows: {len(final_df)}")
+    else:
+        print("\n❌ No data collected!")
 
 if __name__ == "__main__":
     main()
