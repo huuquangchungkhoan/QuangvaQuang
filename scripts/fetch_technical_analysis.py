@@ -460,6 +460,10 @@ def process_ticker(ticker: str) -> pd.DataFrame:
     # Reset index to make date a column
     df = df.reset_index()
     
+    # KEEP ONLY THE LATEST ROW (User request: only today's data)
+    # We needed 200 days to calculate SMA200, but we only save the final result
+    df = df.iloc[[-1]].copy()
+    
     # Optimize types for Arrow
     # Convert float64 to float32 to save space (50% reduction for numbers)
     float_cols = df.select_dtypes(include=['float64']).columns
