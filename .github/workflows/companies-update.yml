@@ -1,0 +1,48 @@
+name: Update Companies Data
+
+on:
+  schedule:
+    # Run twice daily: 12:00 VN (5:00 UTC) and 15:00 VN (8:00 UTC)
+    # Weekdays only
+    - cron: '0 5,8 * * 1-5'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  fetch-and-upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          pip install vnstock requests boto3
+      
+      - name: Fetch companies data
+        run: |
+          python scripts/fetch_company_vietcap.py
+      
+      - name: Upload companies to R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          python scripts/upload_companies.py
+      
+      - name: Summary
+        run: |
+          echo "### ✅ Companies Update Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Data Updated:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Companies: $(ls data/companies/*.json 2>/dev/null | wc -l) files" >> $GITHUB_STEP_SUMMARY
+          echo "- Total size: $(du -sh data/companies 2>/dev/null | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next run:** $(date -d '+30 minutes' '+%Y-%m-%d %H:%M UTC' 2>/dev/null || date -v+30M '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
