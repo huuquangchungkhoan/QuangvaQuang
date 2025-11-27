@@ -460,6 +460,14 @@ def process_ticker(ticker: str) -> pd.DataFrame:
     # Reset index to make date a column
     df = df.reset_index()
     
+    # Optimize types for Arrow
+    # Convert float64 to float32 to save space (50% reduction for numbers)
+    float_cols = df.select_dtypes(include=['float64']).columns
+    df[float_cols] = df[float_cols].astype('float32')
+    
+    # Convert ticker to category (dictionary encoding) to save space
+    df['ticker'] = df['ticker'].astype('category')
+    
     # Replace NaN and Infinity with None for JSON compatibility (not strictly needed for Arrow but good practice)
     df = df.replace([np.inf, -np.inf], np.nan)
     
