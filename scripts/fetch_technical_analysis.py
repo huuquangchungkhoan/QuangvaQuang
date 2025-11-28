@@ -489,8 +489,9 @@ def save_to_arrow(df: pd.DataFrame, output_file: str = "data/technical_analysis.
     # Create directory if it doesn't exist
     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
     
-    # Save as Arrow IPC (Feather)
-    feather.write_feather(df, output_file, compression='lz4')
+    # Save as Arrow IPC (Feather) without compression
+    # Frontend apache-arrow doesn't have LZ4 codec support
+    feather.write_feather(df, output_file, compression='uncompressed')
     
     size_mb = Path(output_file).stat().st_size / (1024 * 1024)
     print(f"\n💾 Saved data to {output_file} ({size_mb:.1f} MB)")
