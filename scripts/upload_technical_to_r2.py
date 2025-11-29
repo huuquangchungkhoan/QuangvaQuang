@@ -44,7 +44,7 @@ def upload_to_r2():
                 s3_key,
                 ExtraArgs={
                     'ContentType': 'application/vnd.apache.arrow.stream',
-                    'CacheControl': 'public, max-age=300'  # 5 minutes cache
+                    'CacheControl': 'no-cache'  # Prevent caching issues
                 }
             )
         

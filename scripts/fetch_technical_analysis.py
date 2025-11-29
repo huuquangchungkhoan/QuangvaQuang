@@ -79,11 +79,34 @@ def fetch_stock_listings() -> list:
             tickers = sorted(list(tickers))
         
         return tickers
+        return []
     except Exception as e:
         print(f"❌ Error fetching stock listings: {e}")
         import traceback
         traceback.print_exc()
         return []
+
+def fetch_latest_index_price(ticker: str) -> float:
+    """Fetch real-time price for an index using the trading API."""
+    try:
+        url = "https://trading.vietcap.com.vn/api/market-data-service/v1/indexes/price"
+        headers = {
+            "user-agent": "Mozilla/5.0",
+            "origin": "https://trading.vietcap.com.vn",
+            "referer": "https://trading.vietcap.com.vn/"
+        }
+        body = {"tickers": [ticker]}
+        
+        response = requests.post(url, headers=headers, json=body, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and data.get("data") and ticker in data["data"]:
+                price = data["data"][ticker].get("price")
+                return float(price) if price else None
+        return None
+    except Exception as e:
+        print(f"❌ Error fetching real-time price for {ticker}: {e}")
+        return None
 
 def fetch_price_data(ticker: str, length: int = 210) -> dict:
     """Fetch price chart data from Vietcap API.
@@ -109,6 +132,39 @@ def fetch_price_data(ticker: str, length: int = 210) -> dict:
         # So we need to trim to requested length
         if result.get("successful") and result.get("data"):
             data = result["data"]
+            
+            # Check if we need to fetch real-time data for VNINDEX
+            if ticker == 'VNINDEX' and data:
+                last_candle = data[-1]
+                last_ts = last_candle.get('tradingTime', 0)
+                
+                # Check if last candle is from today (approximate check)
+                # If last candle is older than 12 hours, try to fetch real-time
+                now_ts = int(datetime.now().timestamp())
+                if (now_ts - last_ts) > 43200: # 12 hours
+                    print(f"⚠️ VNINDEX data might be stale (Last: {datetime.fromtimestamp(last_ts)}). Fetching real-time...")
+                    realtime_price = fetch_latest_index_price(ticker)
+                    
+                    if realtime_price:
+                        print(f"✅ Fetched real-time price: {realtime_price}")
+                        # Create a new candle for today
+                        # Use current time or end of day
+                        today_ts = int(datetime.now().replace(hour=15, minute=0, second=0, microsecond=0).timestamp())
+                        if today_ts < last_ts: today_ts = now_ts # Fallback if time sync issue
+                        
+                        manual_candle = last_candle.copy()
+                        manual_candle['tradingTime'] = today_ts
+                        manual_candle['closingPrice'] = realtime_price
+                        # We only have close price, so set others to same or estimate
+                        # Ideally we should get open/high/low but this endpoint only gives price
+                        manual_candle['highPrice'] = realtime_price 
+                        manual_candle['lowPrice'] = realtime_price
+                        manual_candle['openPrice'] = realtime_price 
+                        
+                        data.append(manual_candle)
+                    else:
+                        print("❌ Failed to fetch real-time price.")
+
             if len(data) > length:
                 result["data"] = data[-length:]  # Get last N candles
         
