@@ -12,8 +12,7 @@ DATA_DIR = Path('data')
 
 # Data files to upload
 JSON_FILES = [
-    'screener.json',
-    'funds.json'
+    'screener.json'
 ]
 
 # Arrow IPC files to upload  

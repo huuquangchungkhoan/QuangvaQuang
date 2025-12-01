@@ -120,28 +120,10 @@ def fetch_all_screener_data():
     screener_df = pd.concat(all_stocks, ignore_index=True)
     logger.info(f"✅ Combined {len(screener_df)} stocks from all exchanges")
     
-    # 2. Fetch VCI Prices in Parallel
-    logger.info("💰 Fetching real-time prices from Vietcap...")
-    tickers = screener_df['ticker'].tolist()
+    # 2. Fetch VCI Prices in Parallel (REMOVED - Using vnstock price instead)
+    # logger.info("💰 Fetching real-time prices from Vietcap...")
     vci_data = {}
-    
-    # Use high concurrency for VCI (no rate limit)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        future_to_symbol = {executor.submit(fetch_vietcap_price, t): t for t in tickers}
-        
-        completed = 0
-        total = len(tickers)
-        
-        for future in concurrent.futures.as_completed(future_to_symbol):
-            symbol, data = future.result()
-            if data:
-                vci_data[symbol] = data
-            
-            completed += 1
-            if completed % 100 == 0:
-                logger.info(f"Progress: {completed}/{total} prices fetched")
-                
-    logger.info(f"✅ Fetched prices for {len(vci_data)} stocks")
+    # ... VCI fetching logic removed ...
 
     # 3. Update DataFrame with VCI Data
     # We'll do this during the JSON conversion to avoid complex pandas merging
@@ -202,11 +184,15 @@ def convert_to_json_safe(df, vci_data):
             'UPCOM': 'UPCOM'
         }.get(exchange_raw, exchange_raw)
         
-        # PRIORITIZE VCI DATA
-        price = vci.get('currentPrice')
-        if price is None:
-            # Fallback to vnstock if VCI failed (unlikely but safe)
-            price = safe_get(row.get('price_near_realtime'))
+        # PRIORITIZE VNSTOCK DATA for Price
+        # VCI price is often reference price, while vnstock gives near real-time match price
+        price = safe_get(row.get('price_near_realtime'))
+        if price:
+            price = price * 1000 # vnstock is in thousands
+            
+        # Fallback to VCI if needed (though we removed VCI fetching above, vci_data might be empty)
+        if not price:
+             price = vci.get('currentPrice')
             
         market_cap = vci.get('marketCap')
         if market_cap is None:

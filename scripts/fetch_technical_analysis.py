@@ -43,6 +43,34 @@ progress_lock = Lock()
 processed_count = 0
 success_count = 0
 
+def fetch_all_realtime_prices() -> dict:
+    """Fetch real-time prices for all stocks using vnstock (batch mode)."""
+    print("\n📥 Fetching real-time prices from vnstock...")
+    prices = {}
+    try:
+        from vnstock import Screener
+        screener = Screener()
+        
+        for exchange in ['HOSE', 'HNX', 'UPCOM']:
+            try:
+                # print(f"   Fetching {exchange}...")
+                df = screener.stock(params={"exchangeName": exchange}, limit=1000)
+                if not df.empty and 'ticker' in df.columns and 'price_near_realtime' in df.columns:
+                    # Create dict: ticker -> price * 1000 (vnstock uses thousands)
+                    for _, row in df.iterrows():
+                        ticker = row['ticker']
+                        price = row['price_near_realtime']
+                        if pd.notna(price) and price > 0:
+                            prices[ticker] = float(price) * 1000
+            except Exception as e:
+                print(f"   ⚠️ Failed to fetch {exchange}: {e}")
+                
+        print(f"✓ Loaded real-time prices for {len(prices)} stocks")
+        return prices
+    except Exception as e:
+        print(f"❌ Error fetching real-time prices: {e}")
+        return {}
+
 def fetch_stock_listings() -> list:
     """Fetch stock listings from API."""
     try:
@@ -129,7 +157,7 @@ def fetch_realtime_stock_price(ticker: str) -> float:
     except Exception as e:
         return None
 
-def fetch_price_data(ticker: str, length: int = 210) -> dict:
+def fetch_price_data(ticker: str, length: int = 210, realtime_price: float = None) -> dict:
     """Fetch price chart data from Vietcap API.
     
     Note: Fetching 210 days to have enough data for SMA200 calculation.
@@ -162,31 +190,47 @@ def fetch_price_data(ticker: str, length: int = 210) -> dict:
                 # Check if last candle is from today (approximate check)
                 # If last candle is older than 12 hours, try to fetch real-time
                 now_ts = int(datetime.now().timestamp())
-                if (now_ts - last_ts) > 43200: # 12 hours
-                    # print(f"⚠️ {ticker} data might be stale (Last: {datetime.fromtimestamp(last_ts)}). Fetching real-time...")
+                
+                # If we have a provided real-time price, use it!
+                # This overrides the stale check because we trust the batch fetch
+                if realtime_price:
+                    # Calculate today's timestamp (15:00 or current time)
+                    today_ts = int(datetime.now().replace(hour=15, minute=0, second=0, microsecond=0).timestamp())
+                    if today_ts < last_ts: today_ts = now_ts # Fallback
                     
-                    realtime_price = None
-                    if ticker == 'VNINDEX':
-                        realtime_price = fetch_latest_index_price(ticker)
+                    # Check if the last candle is already today
+                    last_date = datetime.fromtimestamp(last_ts).date()
+                    today_date = datetime.now().date()
+                    
+                    if last_date == today_date:
+                        # Update existing candle
+                        # print(f"   Updating {ticker} price: {last_candle['closingPrice']} -> {realtime_price}")
+                        last_candle['closingPrice'] = realtime_price
+                        last_candle['highPrice'] = max(last_candle['highPrice'], realtime_price)
+                        last_candle['lowPrice'] = min(last_candle['lowPrice'], realtime_price)
+                        # Don't change open/tradingTime
                     else:
-                        realtime_price = fetch_realtime_stock_price(ticker)
-                    
-                    if realtime_price:
-                        # print(f"✅ {ticker}: Fetched real-time price: {realtime_price}")
-                        # Create a new candle for today
-                        # Use current time or end of day
+                        # Append new candle
+                        # print(f"   Appending {ticker} new candle: {realtime_price}")
+                        new_candle = last_candle.copy()
+                        new_candle['tradingTime'] = today_ts
+                        new_candle['closingPrice'] = realtime_price
+                        new_candle['highPrice'] = realtime_price 
+                        new_candle['lowPrice'] = realtime_price
+                        new_candle['openPrice'] = realtime_price 
+                        data.append(new_candle)
+                
+                # Fallback for VNINDEX (which doesn't come from vnstock batch)
+                elif ticker == 'VNINDEX' and (now_ts - last_ts) > 43200:
+                     realtime_price = fetch_latest_index_price(ticker)
+                     if realtime_price:
                         today_ts = int(datetime.now().replace(hour=15, minute=0, second=0, microsecond=0).timestamp())
-                        if today_ts < last_ts: today_ts = now_ts # Fallback if time sync issue
-                        
                         manual_candle = last_candle.copy()
                         manual_candle['tradingTime'] = today_ts
                         manual_candle['closingPrice'] = realtime_price
-                        # We only have close price, so set others to same or estimate
-                        # Ideally we should get open/high/low but this endpoint only gives price
                         manual_candle['highPrice'] = realtime_price 
                         manual_candle['lowPrice'] = realtime_price
                         manual_candle['openPrice'] = realtime_price 
-                        
                         data.append(manual_candle)
 
             if len(data) > length:
@@ -196,13 +240,13 @@ def fetch_price_data(ticker: str, length: int = 210) -> dict:
     except Exception as e:
         return None
 
-def process_ticker(ticker: str) -> pd.DataFrame:
+def process_ticker(ticker: str, realtime_price: float = None) -> pd.DataFrame:
     """Fetch price data and calculate technical indicators for a ticker. Returns DataFrame."""
     global processed_count, success_count
     
     # Fetch price data (works for both stocks and indices)
     # Using 210 days to have enough data for SMA200
-    price_data = fetch_price_data(ticker, length=210)
+    price_data = fetch_price_data(ticker, length=210, realtime_price=realtime_price)
     
     if not price_data or not price_data.get("successful"):
         with progress_lock:
@@ -591,6 +635,9 @@ def main():
         print("❌ No tickers found. Exiting.")
         return
     
+    # Fetch real-time prices (Batch)
+    realtime_prices = fetch_all_realtime_prices()
+    
     # Add VNINDEX to the beginning
     tickers = ["VNINDEX"] + tickers
     
@@ -602,7 +649,10 @@ def main():
     # Process tickers in parallel using ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=20) as executor:
         # Submit all tasks
-        future_to_ticker = {executor.submit(process_ticker, ticker): ticker for ticker in tickers}
+        future_to_ticker = {
+            executor.submit(process_ticker, ticker, realtime_prices.get(ticker)): ticker 
+            for ticker in tickers
+        }
         
         # Process completed tasks
         for future in as_completed(future_to_ticker):

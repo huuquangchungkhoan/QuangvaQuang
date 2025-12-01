@@ -1,4 +1,4 @@
-name: Technical Analysis Update
+name: Price & Screener Update
 
 on:
   schedule:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-technical-analysis:
+  update-price-data:
     runs-on: ubuntu-latest
     
     steps:
@@ -23,22 +23,36 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas pandas_ta requests boto3 pyarrow
+        pip install pandas pandas_ta requests boto3 pyarrow vnstock
 
-    - name: Fetch technical analysis data
+    - name: Fetch Screener Data
+      run: |
+        python scripts/fetch_screener.py
+      env:
+        PYTHONUNBUFFERED: 1
+
+    - name: Fetch Technical Analysis Data
       run: |
         python scripts/fetch_technical_analysis.py
       env:
         PYTHONUNBUFFERED: 1
 
-    - name: Upload JSON to R2 bucket
-      run: |
-        python scripts/upload_technical_to_r2.py
+    - name: Upload Screener to R2
       env:
         R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        PYTHONUNBUFFERED: 1
+        R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      run: |
+        python scripts/upload_to_r2.py
+
+    - name: Upload Technical Data to R2
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      run: |
+        python scripts/upload_technical_to_r2.py
 
     - name: Purge Worker cache
       run: |
@@ -46,13 +60,3 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}" \
           -H "Content-Type: application/json" \
           --data '{"purge_everything":true}'
-
-    - name: Upload artifact (for debugging)
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: technical-analysis-logs
-        path: |
-          fetch_technical.log
-          data/technical_analysis.json
-        retention-days: 7
